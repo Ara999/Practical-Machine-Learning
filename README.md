@@ -2,7 +2,6 @@
 
 Assignment for Practical Machine Learning
 
-Files: 
--PML Assignment. Rmd
--PML Assignment. html
+Files: PML Assignment. Rmd     and       
+PML Assignment. html
 
