@@ -1,0 +1,117 @@
+---
+title: "Practical Machine Learning Assignment"
+author: "A. Chou"
+date: "22/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. Participants were supervised by an experienced weight lifter to make sure the execution complied to the manner they were supposed to simulate. The exercises were performed by six male participants aged between 20-28 years, with little weight lifting experience.
+
+Read more: http:/groupware.les.inf.puc-rio.br/har#ixzz4Tjq6H1IK
+
+The goal here is to predict the "classe" with the help of other predictors. 
+
+## Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+Loading the packages and the data
+```{r}
+library(caret)
+library(rpart)
+library(knitr)
+library(rpart.plot)
+training_d <- read.csv('pml-training.csv')
+test_d <- read.csv('pml-testing.csv')
+```
+
+##Cleansing the Data 
+On inspection, we found NA,#DIV/0! and blank values in the data. As these are not valid observed values, we remove them with na.strings parameter.
+```{r}
+training_d <- read.csv('pml-training.csv', na.strings = c("NA", "#DIV/0!", ""))
+test_d <- read.csv('pml-testing.csv', na.strings = c("NA", "#DIV/0!", ""))
+clnIndex <- colSums(is.na(training_d))/nrow(training_d) < 0.95
+training.df <-training_d[,clnIndex]
+dim(training.df)
+
+```
+
+Verifying if NA observations have been removed correctly
+```{r}
+colSums(is.na(training.df))/nrow(training.df)
+colSums(is.na(training.df))
+```
+
+Removing the non-predictors from the training set which includes the index, subject name, time and window variables
+```{r}
+training.df <- training.df[,-c(1:7)]
+cltest_data <- test_d[,-c(1:7)]
+```
+
+Partioning the training data into training and cross validation
+```{r}
+trainIndex <- createDataPartition(training.df$classe, p=0.75)[[1]]
+n_training_data <- training.df[trainIndex,]
+cr_training_data <- training.df[-trainIndex,]
+dim(n_training_data)
+dim(cr_training_data)
+```
+Changing the test data set into the same
+```{r}
+allnames <- names(training.df)
+cltest_data <- test_d[,allnames[1:52]]
+```
+
+## Algorithm
+Predicting with Decision Tree and using confusion matrix
+
+```{r}
+DecisionTree <- train(classe ~., method='rpart', data=n_training_data)
+real <- factor(cr_training_data$classe)
+DT_prediction<- predict(DecisionTree, cr_training_data)
+confusionMatrix(DT_prediction, real)
+
+```
+
+Plot
+```{r}
+rpart.plot(DecisionTree$finalModel)
+```
+
+Using Random Forest
+```{r}
+randomForest <- train(classe ~., method='rf', data=n_training_data, ntree=128)
+RF_Prediction <- predict(randomForest, cr_training_data)
+cMrf<- confusionMatrix(RF_Prediction, real)
+cMrf
+```
+
+plot matrix results
+```{r}
+plot(cMrf$table, col = cMrf$byClass, main = paste("Random Forest - Accuracy =",
+round(cMrf$overall['Accuracy'], 4)))
+```
+
+The accuracy level of the random forest model is 99 percent. The decision tree model has an accuracy of nearly 50 percent Thus, the random forest has better performance and we will apply it to predict the results
+```{r}
+predict(randomForest, cltest_data)
+
+```
+
